@@ -252,6 +252,13 @@ python3 -m py_compile src/outline_edit/*.py
 PYTHONPATH=src python3 -m outline_edit --help
 ```
 
+## Related Projects
+
+- [python-outline](https://pypi.org/project/python-outline/) — Python client library for the Outline API
+- [mcp-outline](https://github.com/Vortiago/mcp-outline) — MCP server for Outline
+- [outline-agent](https://github.com/visualDust/outline-agent) — AI agent for Outline knowledge bases
+- [outline-skills](https://github.com/visualdust/outline-skills) — Skill definitions for Outline agents
+
 ## License
 
 Apache 2.0
