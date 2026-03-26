@@ -11,12 +11,12 @@ Use this skill when working with an Outline knowledge base through `outline-edit
 
 - `auth`: validate API access and show the current user/team
 - `init`: create a starter config file, optionally interactively
-- `pull`: fetch remote documents into the local cache
-- `status`: show local cache state, including modified or stale docs
-- `list`: list cached documents
-- `read`: print a cached document
-- `create`: create a document through the raw Outline API
-- `search`: search cached metadata and content
+- `pull`: fetch remote documents into the local cache (**requires** a scope flag — see Gotchas)
+- `status`: show local cache state, including modified, stale, or missing docs
+- `list`: list cached documents (local only, no API call)
+- `read`: print a cached document's markdown content
+- `create`: create a document through the raw Outline API (creates a **draft** by default — pass `--publish` or run `publish` after)
+- `search`: search cached metadata and content (local only — must `pull` first)
 - `diff`: compare a cached document with its last synced snapshot
 - `push`: send local cached edits back to Outline
 - `publish`: publish a cached draft
@@ -27,6 +27,81 @@ Use this skill when working with an Outline knowledge base through `outline-edit
 - `revdiff`: diff two remote revisions
 - `log`: show remote Outline activity events
 
+## Gotchas
+
+### `pull` requires an explicit scope flag
+
+`pull` always needs one of: `--all`, `--collection NAME`, `--query TEXT`, or `--document-id UUID`.
+There is no default — bare `outline-edit pull` or `outline-edit pull --metadata-only` will error.
+
+```
+# WRONG — will fail
+outline-edit pull --metadata-only
+
+# CORRECT
+outline-edit pull --all --metadata-only
+outline-edit pull --collection "Engineering" --metadata-only
+```
+
+### Document selectors: titles, UUIDs, and ambiguity
+
+Commands that take a document `selector` (read, diff, push, publish, archive, restore, delete, history) accept:
+- **Full UUID**: `4a16e5a1-a7bd-40e4-8a28-25338a485519`
+- **Short hex prefix**: `4a16e5a1` (first 8 chars of the UUID — shown in `list` output)
+- **Title substring**: `"My Doc"` — but this will **error if ambiguous** (matches multiple docs)
+
+When a title selector is ambiguous, the error message lists all matches with their UUIDs. Use the full UUID or short prefix to disambiguate.
+
+**Best practice**: Use `list` or `search --title-only` first to find the short hex prefix, then use that for subsequent commands.
+
+### `--collection` filter does substring matching on slugs
+
+The `--collection` flag on `list`, `search`, `status`, and `push` does case-insensitive substring matching on the slug form of collection names. Short names will over-match:
+
+```
+# GOTCHA: "IT" matches slugs containing "it": it, compet-it-ive-landscape, etc.
+outline-edit list --collection "IT"
+# May return: IT, Competitive Landscape, Grants and Credits
+
+# SAFER: use a longer, unambiguous name
+outline-edit list --collection "Competitive Landscape"
+```
+
+For short collection names, verify results or use `--json` and filter by `collectionName` for exact matching.
+
+### `list` and `search` are local-only
+
+They only see documents already in the local cache. If the cache is empty or stale, results will be incomplete. Always `pull` first. Full-text `search` requires content pulled (not just `--metadata-only`).
+
+### Listing collections
+
+There is no dedicated `collections` command. To get a clean list of all collection names:
+`outline-edit list --json | python3 -c "import json,sys; d=json.load(sys.stdin); print('\n'.join(sorted(set(x['collectionName'] for x in d['documents']))))"`
+
+### Renaming a document
+
+There is no `rename` command. To change a document's title, edit the title via the Outline API:
+
+```
+curl -s -X POST https://YOUR_OUTLINE/api/documents.update \
+  -H "Authorization: Bearer $OUTLINE_CLI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "FULL-UUID", "title": "New Title"}'
+```
+
+Then re-pull to sync the local cache: `outline-edit pull --document-id FULL-UUID --force`
+
+Get the full UUID from `outline-edit list SELECTOR --json`.
+
+### `create --text` and long content
+
+For documents longer than a few lines, use `--file` instead of `--text` to avoid shell quoting issues:
+`outline-edit create --title "My Doc" --collection "Eng" --file /tmp/draft.md --publish`
+
+### `--force` pull overwrites local edits
+
+If you have unpushed local changes and run `pull --force`, they will be lost. Check `status --modified` before force-pulling.
+
 ## Default workflow
 
 1. If config is missing, create it:
@@ -35,24 +110,26 @@ Use this skill when working with an Outline knowledge base through `outline-edit
    `outline-edit init --interactive`
 2. Validate config and auth before remote operations:
    `outline-edit auth`
-3. Populate or refresh the local cache:
+3. Bootstrap the cache (first time or periodic refresh):
+   `outline-edit pull --all --metadata-only`
+4. Pull content for what you need:
    `outline-edit pull --collection ...`
    `outline-edit pull --query ...`
    `outline-edit pull --document-id ...`
-4. Work from the local cache when possible:
+5. Work from the local cache when possible:
    `outline-edit status`
    `outline-edit list`
    `outline-edit read ...`
    `outline-edit search ...`
    `outline-edit diff ...`
-5. Mutate remotely only when needed:
-   `outline-edit create ...`
+6. Mutate remotely only when needed:
+   `outline-edit create --title "..." --collection "..." --text "..." --publish`
    `outline-edit push ...`
    `outline-edit publish ...`
    `outline-edit archive ...`
    `outline-edit restore ...`
    `outline-edit delete ...`
-6. Use remote audit/revision commands for history:
+7. Use remote audit/revision commands for history:
    `outline-edit history ...`
    `outline-edit revdiff ...`
    `outline-edit log ...`
@@ -66,10 +143,13 @@ Use this skill when working with an Outline knowledge base through `outline-edit
 - Use `--json` when you need exact time-window filtering, actor rollups, or other client-side post-processing.
 - `delete --permanent` depends on server-side permission.
 - Default config path is XDG config: `~/.config/outline-edit/config.env`.
-- Default cache path is XDG state and scoped by Outline host.
+- Default cache path is XDG state and scoped by Outline host: `~/.local/state/outline-edit/cache/<host-slug>/`.
+- When a selector is ambiguous, use the 8-char hex prefix from `list` output, not the title.
 
 ## Common patterns
 
+- List all collections:
+  `outline-edit list --json | python3 -c "import json,sys; d=json.load(sys.stdin); print('\n'.join(sorted(set(x['collectionName'] for x in d['documents']))))"`
 - Latest updates in a collection:
   `outline-edit log --collection ... --events documents.create,documents.update,documents.publish --limit 100 --json`
   Filter the returned `createdAt` timestamps client-side for exact windows such as "past week".
@@ -88,6 +168,10 @@ Use this skill when working with an Outline knowledge base through `outline-edit
   `outline-edit status --modified`
   and
   `outline-edit status --stale`
+- Rename a document:
+  Get UUID: `outline-edit list SELECTOR --json`
+  Then: `curl -s -X POST https://YOUR_OUTLINE/api/documents.update -H "Authorization: Bearer $OUTLINE_CLI_API_KEY" -H "Content-Type: application/json" -d '{"id":"UUID","title":"New Title"}'`
+  Then: `outline-edit pull --document-id UUID --force`
 - Recently viewed docs or who viewed a doc:
   not exposed as a first-class `outline-edit` command yet; do not promise this workflow without adding support first.
 
