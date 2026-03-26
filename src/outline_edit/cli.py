@@ -845,16 +845,36 @@ def push_single_document(
     )
 
     if remote_document.get("revision") != entry.get("contentRevision"):
-        return {
-            "status": "conflict",
-            "id": entry["id"],
-            "title": entry["title"],
-            "localBaseRevision": entry.get("contentRevision"),
-            "remoteRevision": remote_document.get("revision"),
-            "remoteUpdatedAt": remote_document.get("updatedAt"),
-            "remoteUpdatedBy": slim_user(remote_document.get("updatedBy")),
-            "url": full_url(config.base_url, remote_document.get("url")),
-        }
+        # Check if this is a metadata-only bump (e.g. publish, archive,
+        # restore) where the remote content hasn't actually changed.
+        # Compare remote text to the local snapshot — the snapshot records
+        # what the content looked like at contentRevision.
+        snap = snapshot_path(config.cache_dir, entry["id"])
+        remote_text = remote_document.get("text")
+        metadata_only_bump = False
+        if snap.exists() and isinstance(remote_text, str):
+            snapshot_text = read_text_file(snap)
+            if remote_text.rstrip() == snapshot_text.rstrip():
+                metadata_only_bump = True
+
+        if not metadata_only_bump:
+            return {
+                "status": "conflict",
+                "id": entry["id"],
+                "title": entry["title"],
+                "localBaseRevision": entry.get("contentRevision"),
+                "remoteRevision": remote_document.get("revision"),
+                "remoteUpdatedAt": remote_document.get("updatedAt"),
+                "remoteUpdatedBy": slim_user(remote_document.get("updatedBy")),
+                "url": full_url(config.base_url, remote_document.get("url")),
+            }
+
+        # Metadata-only bump: advance contentRevision so the push proceeds
+        # against the current remote revision.
+        entry["contentRevision"] = remote_document.get("revision")
+        refreshed = index["documents"].get(entry["id"])
+        if refreshed is not None and refreshed is not entry:
+            refreshed["contentRevision"] = remote_document.get("revision")
 
     if not state["modified"] and not publish:
         return {
