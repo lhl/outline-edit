@@ -1,0 +1,8 @@
+.outline-cli/
+.outline-cli.env
+.pytest_cache/
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/

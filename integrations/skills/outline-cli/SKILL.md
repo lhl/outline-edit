@@ -1,0 +1,1 @@
+../../../src/outline_cli/skill.md

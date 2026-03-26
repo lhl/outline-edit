@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling==1.29.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "outline-cli"
+version = "0.1.0"
+description = "CLI for syncing Outline documents into a local cache and managing them through the raw API."
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["agents", "cache", "cli", "knowledge-base", "outline"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Utilities",
+]
+license = "MIT"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/lhl/outline-cli"
+Repository = "https://github.com/lhl/outline-cli"
+Issues = "https://github.com/lhl/outline-cli/issues"
+
+[project.scripts]
+outline-cli = "outline_cli.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/outline_cli"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src/outline_cli",
+  "/README.md",
+  "/pyproject.toml",
+  "/tests",
+  "/docs",
+]
+
+[tool.uv]
+dev-dependencies = [
+  "build==1.4.2",
+  "pytest==9.0.2",
+  "twine==6.2.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
