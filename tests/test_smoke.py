@@ -1,4 +1,5 @@
 from argparse import Namespace
+from pathlib import Path
 
 import pytest
 
@@ -10,6 +11,7 @@ from outline_edit.cli import (
     build_config,
     build_parser,
     command_init,
+    command_skill,
     default_cache_dir,
 )
 
@@ -88,3 +90,22 @@ def test_build_config_rejects_invalid_timeout(tmp_path, monkeypatch) -> None:
 
     with pytest.raises(KBError, match="Invalid timeout value"):
         build_config(args)
+
+
+def test_command_skill_reads_repo_export_in_checkout(tmp_path, capsys) -> None:
+    exported_skill = (
+        Path(__file__).resolve().parents[1]
+        / "integrations/skills/outline-edit/SKILL.md"
+    )
+    config = Config(
+        base_url="",
+        api_key=None,
+        cache_dir=tmp_path / "cache",
+        timeout=30.0,
+        env_file=tmp_path / "config.env",
+    )
+
+    assert exported_skill.is_file()
+    assert not exported_skill.is_symlink()
+    assert command_skill(Namespace(), config) == 0
+    assert capsys.readouterr().out == exported_skill.read_text(encoding="utf-8")

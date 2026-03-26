@@ -1825,6 +1825,11 @@ def command_log(args: argparse.Namespace, config: Config) -> int:
 def command_skill(args: argparse.Namespace, config: Config) -> int:
     skill_file = Path(__file__).with_name("skill.md")
     if not skill_file.exists():
+        skill_file = (
+            Path(__file__).resolve().parents[2]
+            / "integrations/skills/outline-edit/SKILL.md"
+        )
+    if not skill_file.exists():
         raise KBError(f"Skill file not found: {skill_file}")
     sys.stdout.write(skill_file.read_text(encoding="utf-8"))
     return 0

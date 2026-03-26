@@ -34,8 +34,12 @@ outline-edit = "outline_edit.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/outline_edit"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"integrations/skills/outline-edit/SKILL.md" = "outline_edit/skill.md"
+
 [tool.hatch.build.targets.sdist]
 include = [
+  "/integrations",
   "/src/outline_edit",
   "/README.md",
   "/pyproject.toml",
