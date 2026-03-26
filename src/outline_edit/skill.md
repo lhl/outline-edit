@@ -11,11 +11,11 @@ Use this skill when working with an Outline knowledge base through `outline-edit
 
 - `auth`: validate API access and show the current user/team
 - `init`: create a starter config file, optionally interactively
-- `pull`: fetch remote documents into the local cache (**requires** a scope flag — see Gotchas)
+- `pull`: fetch remote documents into the local cache (defaults to all documents when no scope flag is given)
 - `status`: show local cache state, including modified, stale, or missing docs
 - `list`: list cached documents (local only, no API call)
 - `read`: print a cached document's markdown content
-- `create`: create a document through the raw Outline API (creates a **draft** by default — pass `--publish` or run `publish` after)
+- `create`: create a document through the raw Outline API (publishes by default — pass `--draft` to create an unpublished draft instead)
 - `search`: search cached metadata and content (local only — must `pull` first)
 - `diff`: compare a cached document with its last synced snapshot
 - `push`: send local cached edits back to Outline
@@ -29,18 +29,14 @@ Use this skill when working with an Outline knowledge base through `outline-edit
 
 ## Gotchas
 
-### `pull` requires an explicit scope flag
+### `pull` defaults to all documents
 
-`pull` always needs one of: `--all`, `--collection NAME`, `--query TEXT`, or `--document-id UUID`.
-There is no default — bare `outline-edit pull` or `outline-edit pull --metadata-only` will error.
+Bare `outline-edit pull` fetches all accessible documents. Use `--collection`, `--query`, or `--document-id` to narrow scope. On a large workspace, prefer a scoped pull to avoid fetching everything:
 
 ```
-# WRONG — will fail
-outline-edit pull --metadata-only
-
-# CORRECT
-outline-edit pull --all --metadata-only
-outline-edit pull --collection "Engineering" --metadata-only
+outline-edit pull --metadata-only              # all docs, metadata only
+outline-edit pull --collection "Engineering"   # one collection, full content
+outline-edit pull --query "deployment"         # search results
 ```
 
 ### Document selectors: titles, UUIDs, and ambiguity
@@ -96,7 +92,7 @@ Get the full UUID from `outline-edit list SELECTOR --json`.
 ### `create --text` and long content
 
 For documents longer than a few lines, use `--file` instead of `--text` to avoid shell quoting issues:
-`outline-edit create --title "My Doc" --collection "Eng" --file /tmp/draft.md --publish`
+`outline-edit create --title "My Doc" --collection "Eng" --file /tmp/draft.md`
 
 ### `--force` pull overwrites local edits
 
@@ -111,7 +107,7 @@ If you have unpushed local changes and run `pull --force`, they will be lost. Ch
 2. Validate config and auth before remote operations:
    `outline-edit auth`
 3. Bootstrap the cache (first time or periodic refresh):
-   `outline-edit pull --all --metadata-only`
+   `outline-edit pull --metadata-only`
 4. Pull content for what you need:
    `outline-edit pull --collection ...`
    `outline-edit pull --query ...`
@@ -123,7 +119,7 @@ If you have unpushed local changes and run `pull --force`, they will be lost. Ch
    `outline-edit search ...`
    `outline-edit diff ...`
 6. Mutate remotely only when needed:
-   `outline-edit create --title "..." --collection "..." --text "..." --publish`
+   `outline-edit create --title "..." --collection "..." --text "..."`
    `outline-edit push ...`
    `outline-edit publish ...`
    `outline-edit archive ...`

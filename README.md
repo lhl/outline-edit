@@ -172,11 +172,11 @@ outline-edit diff "Weekly Notes"
 outline-edit push "Weekly Notes"
 ```
 
-Create and publish documents:
+Create documents (published by default):
 
 ```bash
-outline-edit create --collection Engineering --title "CLI Test" --text "draft body"
-outline-edit publish "CLI Test"
+outline-edit create --collection Engineering --title "CLI Test" --text "body text"
+outline-edit create --collection Engineering --title "Draft Note" --text "wip" --draft
 ```
 
 Manage lifecycle and history:
@@ -215,10 +215,10 @@ The skill file is also available in the repository at `integrations/skills/outli
 
 ## Gotchas
 
-- **Optimistic locking, not merging.** `push` checks the remote revision against your last `pull`. If someone else edited the document remotely, `push` refuses the update. You must re-pull (which overwrites your local copy) or resolve the conflict manually. There is no three-way merge.
+- **Optimistic locking, not merging.** `push` checks the remote revision against your last `pull`. If the revision differs but the remote content is unchanged (e.g. a publish or archive bumped the revision), push automatically rebases and proceeds. If the remote content actually changed, push refuses the update. You must re-pull (which overwrites your local copy) or resolve the conflict manually. There is no three-way merge.
 - **`diff` is local-only.** `diff` compares your cached file against the snapshot saved at last `pull`. It does not contact the remote server. Use `revdiff` to compare remote revisions against each other.
 - **Search is substring-only.** Local `search` does case-insensitive substring matching on titles, paths, and file content. There is no regex, fuzzy, or ranked full-text search.
-- **`pull --all` fetches everything.** On a large Outline workspace this can be slow and write a lot of files. Prefer `pull --collection` or `pull --query` to scope the sync.
+- **`pull` defaults to all documents.** On a large Outline workspace a bare `pull` can be slow and write a lot of files. Prefer `pull --collection` or `pull --query` to scope the sync.
 - **`delete --permanent` is irreversible.** The document is removed server-side and cannot be restored. This also requires the appropriate Outline permission on the server.
 - **No automatic staleness detection.** The cache does not refresh on its own. Run `pull` explicitly to update. `status --stale` shows documents where the remote revision is ahead of the cached content revision, but only based on metadata from the last pull.
 - **Single-writer cache.** The local cache is not designed for concurrent writes from multiple processes to the same cache directory.

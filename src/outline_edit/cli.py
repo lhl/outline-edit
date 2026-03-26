@@ -1396,7 +1396,7 @@ def command_create(args: argparse.Namespace, config: Config) -> int:
 
     payload: dict[str, Any] = {
         "title": args.title,
-        "publish": args.publish,
+        "publish": not args.draft,
     }
     if args.text is not None:
         payload["text"] = args.text
@@ -1859,8 +1859,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     pull_parser = subparsers.add_parser("pull", help="Fetch documents into the local cache")
     add_runtime_args(pull_parser, include_json=True, suppress_defaults=True)
-    selector_group = pull_parser.add_mutually_exclusive_group(required=True)
-    selector_group.add_argument("--all", action="store_true", help="Pull all accessible documents")
+    selector_group = pull_parser.add_mutually_exclusive_group(required=False)
+    selector_group.add_argument("--all", action="store_true", help="Pull all accessible documents (this is the default when no scope flag is given)")
     selector_group.add_argument("--collection", help="Pull documents for a collection name or id")
     selector_group.add_argument("--query", help="Pull documents matching a title query")
     selector_group.add_argument("--document-id", help="Pull a single document by id")
@@ -1921,7 +1921,7 @@ def build_parser() -> argparse.ArgumentParser:
     create_parser.add_argument("--collection", help="Collection name or id")
     create_parser.add_argument("--parent", help="Optional cached parent document selector")
     create_parser.add_argument("--template-id", help="Optional template document id")
-    create_parser.add_argument("--publish", action="store_true", help="Create the document as published")
+    create_parser.add_argument("--draft", action="store_true", help="Create the document as an unpublished draft instead of publishing immediately")
     create_parser.add_argument("--full-width", action="store_true", help="Create the document in full-width mode")
     create_parser.set_defaults(func=command_create)
 
