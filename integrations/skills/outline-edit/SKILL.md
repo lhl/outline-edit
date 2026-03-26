@@ -50,7 +50,7 @@ When a title selector is ambiguous, the error message lists all matches with the
 
 **Best practice**: Use `list` or `search --title-only` first to find the short hex prefix, then use that for subsequent commands.
 
-### `--collection` filter does substring matching on slugs
+### `--collection` filter does substring matching
 
 The `--collection` flag on `list`, `search`, `status`, and `push` does case-insensitive substring matching on collection names and raw substring matching on collection IDs. Short names will over-match:
 
@@ -157,7 +157,7 @@ This is cheap (one API call) and ensures you are editing from the current base. 
 ## Common patterns
 
 - List all collections:
-  `outline-edit list --json | python3 -c "import json,sys; d=json.load(sys.stdin); print('\n'.join(sorted(set(x['collectionName'] for x in d['documents']))))"`
+  `outline-edit list --json | python3 -c "import json,sys; d=json.load(sys.stdin); print('\n'.join(sorted(set(x['collectionName'] for x in d['documents'] if x.get('collectionName')))))"`
 - Latest updates in a collection:
   `outline-edit log --collection ... --events documents.create,documents.update,documents.publish --limit 100 --json`
   Filter the returned `createdAt` timestamps client-side for exact windows such as "past week".
