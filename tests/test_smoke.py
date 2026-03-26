@@ -2,7 +2,7 @@ from argparse import Namespace
 
 import pytest
 
-from outline_cli.cli import (
+from outline_edit.cli import (
     DEFAULT_ENV_FILE,
     Config,
     KBError,
@@ -16,12 +16,12 @@ from outline_cli.cli import (
 
 def test_build_parser_uses_console_name() -> None:
     parser = build_parser()
-    assert parser.prog == "outline-cli"
+    assert parser.prog == "outline-edit"
 
 
 def test_default_env_file_uses_xdg_config_path() -> None:
     assert DEFAULT_ENV_FILE.name == "config.env"
-    assert DEFAULT_ENV_FILE.parent.name == "outline-cli"
+    assert DEFAULT_ENV_FILE.parent.name == "outline-edit"
 
 
 def test_default_cache_dir_is_scoped_by_host() -> None:
@@ -55,7 +55,7 @@ def test_command_init_writes_template_config(tmp_path, capsys) -> None:
     content = env_file.read_text(encoding="utf-8")
     assert "OUTLINE_CLI_BASE_URL=https://your-outline.example.com" in content
     assert "OUTLINE_CLI_API_KEY=..." in content
-    assert "Next step: outline-cli auth" in capsys.readouterr().out
+    assert "Next step: outline-edit auth" in capsys.readouterr().out
 
 
 def test_missing_config_error_points_to_init(tmp_path) -> None:
@@ -73,7 +73,7 @@ def test_missing_config_error_points_to_init(tmp_path) -> None:
 
     message = str(excinfo.value)
     assert str(env_file) in message
-    assert "outline-cli init" in message
+    assert "outline-edit init" in message
 
 
 def test_build_config_rejects_invalid_timeout(tmp_path, monkeypatch) -> None:

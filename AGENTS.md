@@ -1,11 +1,11 @@
-# outline-cli Agent Guide
+# outline-edit Agent Guide
 
-`outline-cli` is a small Python packaging repo for a public-facing CLI. Keep changes compact, keep docs public-safe, prioritize packaging clarity over internal project sprawl, and commit completed work promptly.
+`outline-edit` is a small Python packaging repo for a public-facing CLI. Keep changes compact, keep docs public-safe, prioritize packaging clarity over internal project sprawl, and commit completed work promptly.
 
 ## Project Shape
 
-- `src/outline_cli/cli.py`: main CLI implementation
-- `src/outline_cli/__main__.py`: `python -m outline_cli` entry point
+- `src/outline_edit/cli.py`: main CLI implementation
+- `src/outline_edit/__main__.py`: `python -m outline_edit` entry point
 - `pyproject.toml`: packaging metadata and console script definition
 - `README.md`: user-facing install and usage guide
 - `tests/`: automated tests
@@ -35,8 +35,8 @@ Run the smallest relevant checks for the files you changed.
 
 Minimum expectations:
 
-- Python changes: `python3 -m py_compile src/outline_cli/*.py`
-- CLI wiring or packaging changes: `PYTHONPATH=src python3 -m outline_cli --help`
+- Python changes: `python3 -m py_compile src/outline_edit/*.py`
+- CLI wiring or packaging changes: `PYTHONPATH=src python3 -m outline_edit --help`
 - If tests exist for the changed area: `pytest`
 - Dependency or packaging version changes: `uv lock`, `uv run pytest`, and `python3 -m build`
 - Compatibility-sensitive changes: run the relevant checks with `uv run --python 3.10 ...`

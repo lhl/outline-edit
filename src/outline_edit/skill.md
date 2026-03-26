@@ -1,11 +1,11 @@
 ---
-name: outline-cli
-description: Use for Outline knowledge base work that should go through the outline-cli local cache and raw API workflow instead of repeated remote reads. Covers init, auth, pull, search, read, diff, push, publish, archive, restore, delete, history, revdiff, and log.
+name: outline-edit
+description: Use for Outline knowledge base work that should go through the outline-edit local cache and raw API workflow instead of repeated remote reads. Covers init, auth, pull, search, read, diff, push, publish, archive, restore, delete, history, revdiff, and log.
 ---
 
-# outline-cli
+# outline-edit
 
-Use this skill when working with an Outline knowledge base through `outline-cli`, especially if the task involves repeated reads, local edits, revision history, or document lifecycle operations.
+Use this skill when working with an Outline knowledge base through `outline-edit`, especially if the task involves repeated reads, local edits, revision history, or document lifecycle operations.
 
 ## Commands
 
@@ -30,69 +30,69 @@ Use this skill when working with an Outline knowledge base through `outline-cli`
 ## Default workflow
 
 1. If config is missing, create it:
-   `outline-cli init`
+   `outline-edit init`
    or
-   `outline-cli init --interactive`
+   `outline-edit init --interactive`
 2. Validate config and auth before remote operations:
-   `outline-cli auth`
+   `outline-edit auth`
 3. Populate or refresh the local cache:
-   `outline-cli pull --collection ...`
-   `outline-cli pull --query ...`
-   `outline-cli pull --document-id ...`
+   `outline-edit pull --collection ...`
+   `outline-edit pull --query ...`
+   `outline-edit pull --document-id ...`
 4. Work from the local cache when possible:
-   `outline-cli status`
-   `outline-cli list`
-   `outline-cli read ...`
-   `outline-cli search ...`
-   `outline-cli diff ...`
+   `outline-edit status`
+   `outline-edit list`
+   `outline-edit read ...`
+   `outline-edit search ...`
+   `outline-edit diff ...`
 5. Mutate remotely only when needed:
-   `outline-cli create ...`
-   `outline-cli push ...`
-   `outline-cli publish ...`
-   `outline-cli archive ...`
-   `outline-cli restore ...`
-   `outline-cli delete ...`
+   `outline-edit create ...`
+   `outline-edit push ...`
+   `outline-edit publish ...`
+   `outline-edit archive ...`
+   `outline-edit restore ...`
+   `outline-edit delete ...`
 6. Use remote audit/revision commands for history:
-   `outline-cli history ...`
-   `outline-cli revdiff ...`
-   `outline-cli log ...`
+   `outline-edit history ...`
+   `outline-edit revdiff ...`
+   `outline-edit log ...`
 
 ## Rules
 
 - Prefer cached reads over repeated remote reads.
-- If a remote command fails due to missing config, run `outline-cli init` first.
+- If a remote command fails due to missing config, run `outline-edit init` first.
 - Run `diff` before `push` when local content changed.
 - Treat `push` conflicts as real remote edits; do not overwrite blindly.
 - Use `--json` when you need exact time-window filtering, actor rollups, or other client-side post-processing.
 - `delete --permanent` depends on server-side permission.
-- Default config path is XDG config: `~/.config/outline-cli/config.env`.
+- Default config path is XDG config: `~/.config/outline-edit/config.env`.
 - Default cache path is XDG state and scoped by Outline host.
 
 ## Common patterns
 
 - Latest updates in a collection:
-  `outline-cli log --collection ... --events documents.create,documents.update,documents.publish --limit 100 --json`
+  `outline-edit log --collection ... --events documents.create,documents.update,documents.publish --limit 100 --json`
   Filter the returned `createdAt` timestamps client-side for exact windows such as "past week".
 - Who changed a document:
-  `outline-cli history "..." --limit 20`
+  `outline-edit history "..." --limit 20`
   or
-  `outline-cli log "..." --events documents.update,documents.publish,documents.archive,documents.delete --limit 50`
+  `outline-edit log "..." --events documents.update,documents.publish,documents.archive,documents.delete --limit 50`
 - What changed in a document:
-  `outline-cli revdiff "..." previous latest`
-  Use `outline-cli diff "..."` for local unsynced edits instead.
+  `outline-edit revdiff "..." previous latest`
+  Use `outline-edit diff "..."` for local unsynced edits instead.
 - Find docs on a topic:
-  `outline-cli pull --query "..." --metadata-only`
+  `outline-edit pull --query "..." --metadata-only`
   then
-  `outline-cli search "..." --title-only`
+  `outline-edit search "..." --title-only`
 - Find local pending work:
-  `outline-cli status --modified`
+  `outline-edit status --modified`
   and
-  `outline-cli status --stale`
+  `outline-edit status --stale`
 - Recently viewed docs or who viewed a doc:
-  not exposed as a first-class `outline-cli` command yet; do not promise this workflow without adding support first.
+  not exposed as a first-class `outline-edit` command yet; do not promise this workflow without adding support first.
 
 ## In Repo
 
 From a checkout, use:
 
-`PYTHONPATH=src python3 -m outline_cli ...`
+`PYTHONPATH=src python3 -m outline_edit ...`

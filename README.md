@@ -1,6 +1,6 @@
-# outline-cli
+# outline-edit
 
-`outline-cli` is a Python command-line tool for working with an [Outline](https://www.getoutline.com/) knowledge base through the raw Outline API while keeping a local markdown cache on disk.
+`outline-edit` is a Python command-line tool for working with an [Outline](https://www.getoutline.com/) knowledge base through the raw Outline API while keeping a local markdown cache on disk.
 
 It is designed for agent and automation workflows that need cheaper repeated reads than full remote document fetches, plus predictable local diff, push, and lifecycle operations.
 
@@ -25,10 +25,10 @@ Root causes (verified against Outline v1.6.1):
 - **No event or audit log.** The MCP does not expose `events.list`. You cannot ask "what changed this week" without fetching every document.
 - **No reliable document read by ID.** MCP resource URIs are registered but return authorization errors in practice.
 
-`outline-cli` sidesteps these costs by maintaining a local markdown cache:
+`outline-edit` sidesteps these costs by maintaining a local markdown cache:
 
 ```
-With outline-cli:
+With outline-edit:
   Read a doc      →  local file read           (~0 API tokens)
   Edit a doc      →  local file edit           (~0 API tokens)
   Push edits      →  one API call              (1x full doc)
@@ -48,7 +48,7 @@ Additional capabilities that MCP does not provide at all:
 - Document archive, restore, and delete operations
 - Optimistic-locking push that refuses to overwrite newer remote edits
 
-Use MCP when you want direct tool-mediated interaction with a live Outline workspace. Use `outline-cli` when you want a reproducible local cache, a cheap read path for repeated workflows, or access to revision and audit capabilities.
+Use MCP when you want direct tool-mediated interaction with a live Outline workspace. Use `outline-edit` when you want a reproducible local cache, a cheap read path for repeated workflows, or access to revision and audit capabilities.
 
 ## Features
 
@@ -58,7 +58,7 @@ Use MCP when you want direct tool-mediated interaction with a live Outline works
 - Remote `create`, `push`, `publish`, `archive`, `restore`, and `delete`
 - Revision history, activity log, and revision-to-revision diff
 - Starter config generation with `init`
-- Bundled agent skill definition via `outline-cli skill`
+- Bundled agent skill definition via `outline-edit skill`
 - No third-party runtime dependencies
 
 ## Requirements
@@ -72,25 +72,25 @@ Use MCP when you want direct tool-mediated interaction with a live Outline works
 Install from PyPI:
 
 ```bash
-pip install outline-cli
+pip install outline-edit
 ```
 
 Install as a global tool with `uv`:
 
 ```bash
-uv tool install outline-cli
+uv tool install outline-edit
 ```
 
 Install as a global tool with `pipx`:
 
 ```bash
-pipx install outline-cli
+pipx install outline-edit
 ```
 
 Run without installing:
 
 ```bash
-uvx outline-cli --help
+uvx outline-edit --help
 ```
 
 Install from a local checkout while developing:
@@ -106,25 +106,25 @@ You can configure the CLI with flags, environment variables, or an env file in t
 Generate a starter config file:
 
 ```bash
-outline-cli init
+outline-edit init
 ```
 
 Generate and fill the required values interactively:
 
 ```bash
-outline-cli init --interactive
+outline-edit init --interactive
 ```
 
 Default config file:
 
 ```bash
-~/.config/outline-cli/config.env
+~/.config/outline-edit/config.env
 ```
 
 If `XDG_CONFIG_HOME` is set, the CLI uses:
 
 ```bash
-$XDG_CONFIG_HOME/outline-cli/config.env
+$XDG_CONFIG_HOME/outline-edit/config.env
 ```
 
 Example config file:
@@ -146,67 +146,67 @@ OUTLINE_CLI_TIMEOUT=30
 Generate config and validate auth:
 
 ```bash
-outline-cli init --interactive
-outline-cli auth
+outline-edit init --interactive
+outline-edit auth
 ```
 
 Pull one collection into the local cache:
 
 ```bash
-outline-cli pull --collection Engineering
+outline-edit pull --collection Engineering
 ```
 
 Inspect the local cache:
 
 ```bash
-outline-cli status
-outline-cli list --collection Engineering
-outline-cli read "Weekly Notes"
-outline-cli search incident
+outline-edit status
+outline-edit list --collection Engineering
+outline-edit read "Weekly Notes"
+outline-edit search incident
 ```
 
 Edit locally and push changes back:
 
 ```bash
-outline-cli diff "Weekly Notes"
-outline-cli push "Weekly Notes"
+outline-edit diff "Weekly Notes"
+outline-edit push "Weekly Notes"
 ```
 
 Create and publish documents:
 
 ```bash
-outline-cli create --collection Engineering --title "CLI Test" --text "draft body"
-outline-cli publish "CLI Test"
+outline-edit create --collection Engineering --title "CLI Test" --text "draft body"
+outline-edit publish "CLI Test"
 ```
 
 Manage lifecycle and history:
 
 ```bash
-outline-cli archive "CLI Test"
-outline-cli restore "CLI Test"
-outline-cli delete "CLI Test"
-outline-cli history "Architecture Notes" --limit 10
-outline-cli revdiff "Architecture Notes" previous latest
-outline-cli log "Architecture Notes" --limit 20
+outline-edit archive "CLI Test"
+outline-edit restore "CLI Test"
+outline-edit delete "CLI Test"
+outline-edit history "Architecture Notes" --limit 10
+outline-edit revdiff "Architecture Notes" previous latest
+outline-edit log "Architecture Notes" --limit 20
 ```
 
 ## Agent Integration
 
-`outline-cli` ships a built-in skill definition that any AI agent can retrieve at runtime:
+`outline-edit` ships a built-in skill definition that any AI agent can retrieve at runtime:
 
 ```bash
-outline-cli skill
+outline-edit skill
 ```
 
 This prints a structured markdown document describing all commands, recommended workflows, rules, and common patterns. Agents that can run shell commands can use this to learn how to operate the tool without external documentation.
 
-The skill file is also available in the repository at `integrations/skills/outline-cli/SKILL.md`.
+The skill file is also available in the repository at `integrations/skills/outline-edit/SKILL.md`.
 
 ## Notes
 
-- The env file defaults to `~/.config/outline-cli/config.env`, or `$XDG_CONFIG_HOME/outline-cli/config.env` when `XDG_CONFIG_HOME` is set.
-- `outline-cli init` writes a commented starter config to that path and refuses to overwrite an existing file unless `--force` is passed.
-- The cache defaults to `~/.local/state/outline-cli/cache/<host>/`, or `$XDG_STATE_HOME/outline-cli/cache/<host>/` when `XDG_STATE_HOME` is set.
+- The env file defaults to `~/.config/outline-edit/config.env`, or `$XDG_CONFIG_HOME/outline-edit/config.env` when `XDG_CONFIG_HOME` is set.
+- `outline-edit init` writes a commented starter config to that path and refuses to overwrite an existing file unless `--force` is passed.
+- The cache defaults to `~/.local/state/outline-edit/cache/<host>/`, or `$XDG_STATE_HOME/outline-edit/cache/<host>/` when `XDG_STATE_HOME` is set.
 - The default cache path is scoped by Outline host so different instances do not share one index by accident.
 - XDG path resolution is implemented directly with the Python standard library; `platformdirs` is intentionally not used so the runtime dependency set stays at zero.
 - `push` uses optimistic locking against the last content-synced revision and refuses to overwrite newer remote edits.
@@ -225,7 +225,7 @@ The skill file is also available in the repository at `integrations/skills/outli
 
 ## Current Limits
 
-### Not currently exposed by `outline-cli`
+### Not currently exposed by `outline-edit`
 
 - Collection create/update/delete operations
 - Comments
@@ -233,7 +233,7 @@ The skill file is also available in the repository at `integrations/skills/outli
 - Attachment or file upload workflows
 - Recently viewed documents or per-document viewer reporting
 
-Some of these exist in the Outline API but `outline-cli` does not wrap them yet.
+Some of these exist in the Outline API but `outline-edit` does not wrap them yet.
 
 ### Not a first-class primitive in the current workflow
 
@@ -248,8 +248,8 @@ The write path is document-oriented: local edit, `diff`, then `push`.
 Basic smoke checks from a checkout:
 
 ```bash
-python3 -m py_compile src/outline_cli/*.py
-PYTHONPATH=src python3 -m outline_cli --help
+python3 -m py_compile src/outline_edit/*.py
+PYTHONPATH=src python3 -m outline_edit --help
 ```
 
 ## License

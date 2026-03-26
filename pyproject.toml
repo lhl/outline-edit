@@ -3,7 +3,7 @@ requires = ["hatchling==1.29.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "outline-cli"
+name = "outline-edit"
 version = "0.1.0"
 description = "CLI for syncing Outline documents into a local cache and managing them through the raw API."
 readme = "README.md"
@@ -24,19 +24,19 @@ license = "MIT"
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/lhl/outline-cli"
-Repository = "https://github.com/lhl/outline-cli"
-Issues = "https://github.com/lhl/outline-cli/issues"
+Homepage = "https://github.com/lhl/outline-edit"
+Repository = "https://github.com/lhl/outline-edit"
+Issues = "https://github.com/lhl/outline-edit/issues"
 
 [project.scripts]
-outline-cli = "outline_cli.cli:main"
+outline-edit = "outline_edit.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/outline_cli"]
+packages = ["src/outline_edit"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "/src/outline_cli",
+  "/src/outline_edit",
   "/README.md",
   "/pyproject.toml",
   "/tests",
