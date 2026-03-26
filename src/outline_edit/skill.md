@@ -52,7 +52,7 @@ When a title selector is ambiguous, the error message lists all matches with the
 
 ### `--collection` filter does substring matching on slugs
 
-The `--collection` flag on `list`, `search`, `status`, and `push` does case-insensitive substring matching on the slug form of collection names. Short names will over-match:
+The `--collection` flag on `list`, `search`, `status`, and `push` does case-insensitive substring matching on collection names and raw substring matching on collection IDs. Short names will over-match:
 
 ```
 # GOTCHA: "IT" matches slugs containing "it": it, compet-it-ive-landscape, etc.
@@ -72,14 +72,14 @@ They only see documents already in the local cache. If the cache is empty or sta
 ### Listing collections
 
 There is no dedicated `collections` command. To get a clean list of all collection names:
-`outline-edit list --json | python3 -c "import json,sys; d=json.load(sys.stdin); print('\n'.join(sorted(set(x['collectionName'] for x in d['documents']))))"`
+`outline-edit list --json | python3 -c "import json,sys; d=json.load(sys.stdin); print('\n'.join(sorted(set(x['collectionName'] for x in d['documents'] if x.get('collectionName')))))"`
 
 ### Renaming a document
 
 There is no `rename` command. To change a document's title, edit the title via the Outline API:
 
 ```
-curl -s -X POST https://YOUR_OUTLINE/api/documents.update \
+curl -s -X POST $OUTLINE_CLI_BASE_URL/api/documents.update \
   -H "Authorization: Bearer $OUTLINE_CLI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"id": "FULL-UUID", "title": "New Title"}'
@@ -89,6 +89,8 @@ Then re-pull to sync the local cache: `outline-edit pull --document-id FULL-UUID
 
 Get the full UUID from `outline-edit list SELECTOR --json`.
 
+Note: the cached filename on disk will not change after a rename — only the title in the index is updated. The old filename continues to work as a selector.
+
 ### `create --text` and long content
 
 For documents longer than a few lines, use `--file` instead of `--text` to avoid shell quoting issues:
@@ -97,6 +99,16 @@ For documents longer than a few lines, use `--file` instead of `--text` to avoid
 ### `--force` pull overwrites local edits
 
 If you have unpushed local changes and run `pull --force`, they will be lost. Check `status --modified` before force-pulling.
+
+### Pre-edit refresh for collaborative use
+
+If a document may have been edited by someone else since your last pull, refresh it before editing:
+`outline-edit pull --document-id UUID`
+This is cheap (one API call) and ensures you are editing from the current base. `status --stale` is only as fresh as the last metadata pull, so re-pull the specific document when freshness matters.
+
+### Push conflict means real remote content change
+
+`push` automatically skips false conflicts from metadata-only revision bumps (publish, archive, restore, rename). If push reports a conflict, the remote content has actually changed or the local snapshot is missing — do not retry blindly.
 
 ## Default workflow
 
@@ -166,7 +178,7 @@ If you have unpushed local changes and run `pull --force`, they will be lost. Ch
   `outline-edit status --stale`
 - Rename a document:
   Get UUID: `outline-edit list SELECTOR --json`
-  Then: `curl -s -X POST https://YOUR_OUTLINE/api/documents.update -H "Authorization: Bearer $OUTLINE_CLI_API_KEY" -H "Content-Type: application/json" -d '{"id":"UUID","title":"New Title"}'`
+  Then: `curl -s -X POST $OUTLINE_CLI_BASE_URL/api/documents.update -H "Authorization: Bearer $OUTLINE_CLI_API_KEY" -H "Content-Type: application/json" -d '{"id":"UUID","title":"New Title"}'`
   Then: `outline-edit pull --document-id UUID --force`
 - Recently viewed docs or who viewed a doc:
   not exposed as a first-class `outline-edit` command yet; do not promise this workflow without adding support first.
