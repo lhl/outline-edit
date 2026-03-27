@@ -2,13 +2,18 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import difflib
+import errno
+import functools
 import getpass
 import hashlib
 import json
 import os
 import re
 import sys
+import tempfile
+import time
 import unicodedata
 import urllib.error
 import urllib.parse
@@ -18,9 +23,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+
+try:
+    import msvcrt
+except ImportError:
+    msvcrt = None
+
 
 DEFAULT_BASE_URL = ""
 DEFAULT_TIMEOUT = 30.0
+DEFAULT_CACHE_LOCK_TIMEOUT = 30.0
+CACHE_LOCK_POLL_INTERVAL = 0.1
 SCHEMA_VERSION = 1
 USER_AGENT = f"outline-edit/{__import__('outline_edit').__version__}"
 API_VERSION = "2"
@@ -82,6 +99,26 @@ def file_sha256(path: Path) -> str:
         for chunk in iter(lambda: fh.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, raw_tmp_path = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=str(path.parent),
+    )
+    tmp_path = Path(raw_tmp_path)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp_path, path)
+    except Exception:
+        with contextlib.suppress(FileNotFoundError):
+            tmp_path.unlink()
+        raise
 
 
 def slugify(value: str, fallback: str) -> str:
@@ -315,7 +352,83 @@ def save_index(cache_dir: Path, index: dict[str, Any]) -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
     index["meta"]["updatedAt"] = utc_now()
     index_path = cache_dir / "index.json"
-    index_path.write_text(json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_text_atomic(index_path, json.dumps(index, indent=2, sort_keys=True) + "\n")
+
+
+def cache_lock_path(cache_dir: Path) -> Path:
+    return cache_dir / ".cache.lock"
+
+
+def _is_lock_busy(exc: OSError) -> bool:
+    return isinstance(exc, BlockingIOError) or exc.errno in {
+        errno.EACCES,
+        errno.EAGAIN,
+        errno.EDEADLK,
+    }
+
+
+def _acquire_cache_lock(lock_fh: Any) -> None:
+    if fcntl is not None:
+        fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return
+    if msvcrt is not None:
+        lock_fh.seek(0, os.SEEK_END)
+        if lock_fh.tell() == 0:
+            lock_fh.write(b"0")
+            lock_fh.flush()
+        lock_fh.seek(0)
+        msvcrt.locking(lock_fh.fileno(), msvcrt.LK_NBLCK, 1)
+        return
+    raise KBError("outline-edit cache locking is unsupported on this platform")
+
+
+def _release_cache_lock(lock_fh: Any) -> None:
+    if fcntl is not None:
+        fcntl.flock(lock_fh.fileno(), fcntl.LOCK_UN)
+        return
+    if msvcrt is not None:
+        lock_fh.seek(0)
+        msvcrt.locking(lock_fh.fileno(), msvcrt.LK_UNLCK, 1)
+        return
+
+
+@contextlib.contextmanager
+def cache_operation_lock(
+    cache_dir: Path,
+    *,
+    timeout: float = DEFAULT_CACHE_LOCK_TIMEOUT,
+):
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = cache_lock_path(cache_dir)
+    deadline = time.monotonic() + max(timeout, 0.0)
+
+    with lock_path.open("a+b") as lock_fh:
+        while True:
+            try:
+                _acquire_cache_lock(lock_fh)
+                break
+            except OSError as exc:
+                if not _is_lock_busy(exc):
+                    raise
+                if time.monotonic() >= deadline:
+                    raise KBError(
+                        "Cache is busy with another outline-edit command; retry this command"
+                        f" or use --cache-dir to isolate concurrent agents: {cache_dir}"
+                    ) from exc
+                time.sleep(CACHE_LOCK_POLL_INTERVAL)
+        try:
+            yield
+        finally:
+            _release_cache_lock(lock_fh)
+
+
+def cache_locked(func):
+    @functools.wraps(func)
+    def wrapper(args: argparse.Namespace, config: Config) -> int:
+        with cache_operation_lock(config.cache_dir):
+            return func(args, config)
+
+    return wrapper
 
 
 def slim_user(user: Any) -> dict[str, str] | None:
@@ -338,8 +451,7 @@ def snapshot_path(cache_dir: Path, doc_id: str) -> Path:
 
 def write_snapshot(cache_dir: Path, doc_id: str, text: str) -> None:
     path = snapshot_path(cache_dir, doc_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text.rstrip() + "\n", encoding="utf-8")
+    write_text_atomic(path, text.rstrip() + "\n")
 
 
 def read_text_file(path: Path) -> str:
@@ -590,8 +702,7 @@ def upsert_document(
         )
 
     absolute_path = cache_dir / relative_path
-    absolute_path.parent.mkdir(parents=True, exist_ok=True)
-    absolute_path.write_text(text.rstrip() + "\n", encoding="utf-8")
+    write_text_atomic(absolute_path, text.rstrip() + "\n")
     write_snapshot(cache_dir, doc_id, text)
     sha256 = file_sha256(absolute_path)
     entry["sha256"] = sha256
@@ -976,9 +1087,9 @@ def command_init(args: argparse.Namespace, config: Config) -> int:
         api_key = prompt_for_value("Outline API key", default=api_key, secret=True)
 
     env_file.parent.mkdir(parents=True, exist_ok=True)
-    env_file.write_text(
+    write_text_atomic(
+        env_file,
         render_config_template(base_url=base_url, api_key=api_key),
-        encoding="utf-8",
     )
     try:
         env_file.chmod(0o600)
@@ -1029,6 +1140,7 @@ def command_auth(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_pull(args: argparse.Namespace, config: Config) -> int:
     client = OutlineClient(config)
     index = load_index(config.cache_dir, config.base_url)
@@ -1110,6 +1222,7 @@ def command_pull(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_status(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     documents = resolve_documents_from_index(
@@ -1165,6 +1278,7 @@ def command_status(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_list(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     documents = resolve_documents_from_index(
@@ -1199,6 +1313,7 @@ def command_list(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_read(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     document = resolve_single_document(index, args.selector, cache_dir=config.cache_dir)
@@ -1228,6 +1343,7 @@ def command_read(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_search(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     results = search_index(
@@ -1262,6 +1378,7 @@ def command_search(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_diff(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     document = resolve_single_document(index, args.selector, cache_dir=config.cache_dir)
@@ -1315,6 +1432,7 @@ def command_diff(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_push(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     if args.selector:
@@ -1390,6 +1508,7 @@ def command_push(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_create(args: argparse.Namespace, config: Config) -> int:
     client = OutlineClient(config)
     index = load_index(config.cache_dir, config.base_url)
@@ -1449,6 +1568,7 @@ def command_create(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_publish(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     entry = resolve_single_document(index, args.selector, cache_dir=config.cache_dir)
@@ -1491,6 +1611,7 @@ def command_publish(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_archive(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     entry = resolve_single_document(index, args.selector, cache_dir=config.cache_dir)
@@ -1533,6 +1654,7 @@ def command_archive(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_restore(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     entry = resolve_single_document(index, args.selector, cache_dir=config.cache_dir)
@@ -1594,6 +1716,7 @@ def command_restore(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_delete(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     entry = resolve_single_document(index, args.selector, cache_dir=config.cache_dir)
@@ -1676,6 +1799,7 @@ def resolve_revdiff_source(
     }
 
 
+@cache_locked
 def command_revdiff(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     document = resolve_single_document(index, args.selector, cache_dir=config.cache_dir)
@@ -1741,6 +1865,7 @@ def command_revdiff(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_history(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     document = resolve_single_document(index, args.selector, cache_dir=config.cache_dir)
@@ -1777,6 +1902,7 @@ def command_history(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
+@cache_locked
 def command_log(args: argparse.Namespace, config: Config) -> int:
     index = load_index(config.cache_dir, config.base_url)
     payload: dict[str, Any] = {

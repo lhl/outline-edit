@@ -221,7 +221,7 @@ The skill file is also available in the repository at `integrations/skills/outli
 - **`pull` defaults to all documents.** On a large Outline workspace a bare `pull` can be slow and write a lot of files. Prefer `pull --collection` or `pull --query` to scope the sync.
 - **`delete --permanent` is irreversible.** The document is removed server-side and cannot be restored. This also requires the appropriate Outline permission on the server.
 - **No automatic staleness detection.** The cache does not refresh on its own. Run `pull` explicitly to update. `status --stale` shows documents where the remote revision is ahead of the cached content revision, but only based on metadata from the last pull.
-- **Single-writer cache.** The local cache is not designed for concurrent writes from multiple processes to the same cache directory.
+- **Cache access is serialized per cache directory.** Cache-touching commands take an OS-managed lock and cache files are replaced atomically. If another `outline-edit` command is already using the same cache, retry the command or use a separate `--cache-dir` for concurrent agents. The `.cache.lock` file itself is inert and should not require manual cleanup.
 
 ## Current Limits
 
