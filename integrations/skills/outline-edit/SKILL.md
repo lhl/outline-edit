@@ -41,7 +41,7 @@ outline-edit pull --query "deployment"         # search results
 
 ### Document selectors: titles, UUIDs, and ambiguity
 
-Commands that take a document `selector` (read, diff, push, publish, archive, restore, delete, history) accept:
+Commands that take a document `selector` (read, diff, push, publish, archive, restore, delete, history) and `pull --document-id` accept:
 - **Full UUID**: `4a16e5a1-a7bd-40e4-8a28-25338a485519`
 - **Short hex prefix**: `4a16e5a1` (first 8 chars of the UUID — shown in `list` output)
 - **Title substring**: `"My Doc"` — but this will **error if ambiguous** (matches multiple docs)
@@ -85,7 +85,7 @@ curl -s -X POST $OUTLINE_CLI_BASE_URL/api/documents.update \
   -d '{"id": "FULL-UUID", "title": "New Title"}'
 ```
 
-Then re-pull to sync the local cache: `outline-edit pull --document-id FULL-UUID --force`
+Then re-pull to sync the local cache: `outline-edit pull --document-id UUID --force`
 
 Get the full UUID from `outline-edit list SELECTOR --json`.
 

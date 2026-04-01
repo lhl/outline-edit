@@ -93,6 +93,16 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+_FULL_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _is_full_uuid(value: str) -> bool:
+    return bool(_FULL_UUID_RE.match(value))
+
+
 def file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as fh:
@@ -1153,11 +1163,16 @@ def command_pull(args: argparse.Namespace, config: Config) -> int:
         resolved_collection = match_collection(collections, args.collection)
         collection_id = resolved_collection["id"]
 
+    document_id = args.document_id
+    if document_id and not _is_full_uuid(document_id):
+        resolved = resolve_single_document(index, document_id, cache_dir=config.cache_dir)
+        document_id = resolved["id"]
+
     documents = fetch_documents(
         client,
         query=args.query,
         collection_id=collection_id,
-        document_id=args.document_id,
+        document_id=document_id,
         limit=args.limit,
         page_size=args.page_size,
         status_filter=parse_status_filter(args.status),
@@ -1357,6 +1372,16 @@ def command_search(args: argparse.Namespace, config: Config) -> int:
 
     if args.json:
         print_json({"query": args.query, "results": results})
+        return 0
+
+    if not results:
+        all_docs = list(index.get("documents", {}).values())
+        total = len(all_docs)
+        with_content = sum(1 for d in all_docs if d.get("lastPullMode") == "content")
+        print(
+            f"no matches for {args.query!r} ({total} cached documents, {with_content} with content)",
+            file=sys.stderr,
+        )
         return 0
 
     for result in results:
@@ -1994,7 +2019,7 @@ def build_parser() -> argparse.ArgumentParser:
     selector_group.add_argument("--all", action="store_true", help="Pull all accessible documents (this is the default when no scope flag is given)")
     selector_group.add_argument("--collection", help="Pull documents for a collection name or id")
     selector_group.add_argument("--query", help="Pull documents matching a title query")
-    selector_group.add_argument("--document-id", help="Pull a single document by id")
+    selector_group.add_argument("--document-id", help="Pull a single document by UUID or short hex prefix")
     pull_parser.add_argument(
         "--status",
         help="Optional status filter: published,draft,archived",
