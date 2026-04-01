@@ -4,6 +4,8 @@
 
 It is designed for agent and automation workflows that need cheaper repeated reads than full remote document fetches, plus predictable local diff, push, and lifecycle operations.
 
+**Zero runtime dependencies.** The entire tool is built on the Python standard library. No third-party packages are imported at runtime, which means no transitive supply-chain exposure and nothing to audit beyond the tool itself.
+
 ## Why Not Just Use MCP?
 
 Outline ships an MCP server, and MCP is usually the right choice for one-off interactive queries. But the MCP surface has structural inefficiencies that compound in agent and automation workflows:
@@ -59,7 +61,7 @@ Use MCP when you want direct tool-mediated interaction with a live Outline works
 - Revision history, activity log, and revision-to-revision diff
 - Starter config generation with `init`
 - Bundled agent skill definition via `outline-edit skill`
-- No third-party runtime dependencies
+- Zero third-party runtime dependencies — stdlib only, no supply-chain surface
 
 ## Requirements
 
